@@ -6,7 +6,10 @@ import math
 import sys
 from skimage import transform
 import imutils
+from scipy import ndimage
 from scipy.ndimage import measurements
+from scipy.ndimage import morphology
+import imutils
 
 sys.path = ["./matchedmyo/"] + sys.path
 import util
@@ -213,4 +216,105 @@ def pasteImage(image, thresd_image, color):
         newimage[thresd_image==1,0] = 255
     elif color == 'yellow':
         newimage[thresd_image==1,0:2] = 255
+    elif color == "blue":
+        newimage[thresd_image==1,2] = 255
+    elif color == "cyan":
+        newimage[thresd_image==1,1:3] = 255
     return newimage
+
+def extractTruthMaske(annotateImage):
+    """
+    Return mask (binary images) showing the position of 
+    each cell type from the annotateImage
+    """
+    truthColors = {
+    'ram': 'green',
+    'rod': 'red',
+    'amoe': 'cyan',
+    'hyp': 'blue',
+    'dys': 'yellow'
+    }
+
+    colorchannels = {
+    'green' : [1],
+    'red' : [0],
+    'blue': [2],
+    'yellow': [0,1],
+    'cyan': [1,2],
+    }
+
+    masks = dict()
+    for i in truthColors.keys():
+        mask = np.zeros((annotateImage.shape[0],annotateImage.shape[1]))
+        channel = colorchannels[truthColors[i]]
+        if len(channel) == 1:
+            loc1 = np.equal(annotateImage[:,:,channel[0]],255)
+            colorchannelSum = np.sum(annotateImage,axis=2)
+            loc2 = np.equal(colorchannelSum,255)
+            loc = np.logical_and(loc1,loc2)
+            mask[loc] = 1.0
+        else:
+            print (i,channel[0],channel[1])
+            loc1 = np.equal(annotateImage[:,:,channel[0]],255)
+            loc2 = np.equal(annotateImage[:,:,channel[1]],255)
+            
+            mask = np.logical_and(loc1,loc2).astype(np.float)
+            
+        masks[i] = mask
+    
+    return masks
+    
+
+def RodPenalty(rod_hits,rodp_hits,\
+                rodthres=0.32,\
+                rodpthres=0.18,
+                ):
+    """
+    Retrun a binary image representing the results of
+    "rod_hits - penalty_hits"
+    where rod_hits and penaly_hits are convolution results of image against the
+    rod filter and rodp (penanlty) filter 
+    """
+    rod_mask = np.greater(rod_hits,rodthres).astype(np.float)
+    penaltymask = np.greater(rodp_hits,rodpthres).astype(np.float)
+    penaltymask = morphology.binary_closing(penaltymask,iterations=3)
+    final_results = rod_mask.copy()
+
+    a1, a2 = measurements.label(rod_mask)
+    for i in np.arange(a2):
+        if np.sum(final_results[a1 == i+1]) <= 75*75*0.06: #area restraint
+            final_results[a1 == i+1] = 0
+        if  np.sum(penaltymask[a1 == i+1]) != 0:
+            final_results[a1 == i+1] = 0
+    
+    return final_results # a binary image
+
+def Rodrotate(TestImage,rodfilter,rodpfilter,\
+            rod_thres = 0.3,\
+            rodp_thres = 0.2,\
+            iters=[0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90]):
+    """
+    Rotate the rodfilter and rodp filter with angles in the iters list,
+    For each angle, convolve the TestImage against the rod filter and rodp filter
+
+    The final output is a binary image showing the detection of cells when putting all angles
+    together (logical_or)
+    """
+    
+    final_results = np.zeros((TestImage.shape[0],TestImage.shape[1]))
+    for i in iters:
+        rotated_rod = imutils.rotate(rodfilter,i)
+        rotated_rodp = imutils.rotate(rodpfilter,i)
+        rod_hits = ndimage.convolve(TestImage,rotated_rod)
+        rodp_hits = ndimage.convolve(TestImage,rotated_rodp)
+        results = RodPenalty(rod_hits,rodp_hits,rodthres= rod_thres,rodpthres = rodp_thres)
+
+        # megre the results of this angle into the final_results
+        final_results = np.logical_or(final_results,results).astype(np.float)
+
+    return final_results
+
+
+
+    
+
