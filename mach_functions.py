@@ -10,6 +10,7 @@ from scipy import ndimage
 from scipy.ndimage import measurements
 from scipy.ndimage import morphology
 import imutils
+import yaml
 
 sys.path = ["./matchedmyo/"] + sys.path
 import util
@@ -149,37 +150,13 @@ def GenerateSubImage(Image,
     
 
 
-def getTrueMarkedCells(annotatedImage,
-                        markechannel='red'):
-    """
-    To extract the positions of true cells from the manually 
-    annotated image (by gimp or photoshop).
-    The returned object is a binary image with cells as 1 and background as
-    0.
-    The convolution results of a filter is then compare with this binary image 
-    to calculate the True Positive/False Postive.
-    """
-    rows = annotatedImage.shape[0]
-    cols = annotatedImage.shape[1]
-
-    markimage = np.zeros((rows,cols))
-
-    if markechannel == 'red':
-        idx = 0
-    elif markechannel == "green":
-        idx = 1
-    else:
-        idx = 2
-    markimage[annotatedImage[:,:,idx] == 255] = 1.0
-        
-    return markimage
-
 def calculate_TP(hits,
                     marked_truth,
                     verbose=True,
+                    FP=False,
                     returnOverlap=False):
     '''
-    Calculted the True Positive (TP) score
+    Calculted the True Positive (TP) score and FP (optional)
     given the hits (the SNR thresholded binary image)
     and the truth image (binary image)
     '''
@@ -192,17 +169,45 @@ def calculate_TP(hits,
         if np.sum(overlap[labels == i]) > 1:
             results[labels==i] = 1.0
 
+    if FP:
+        labels3, numofgroups3 = measurements.label(hits)
+        overlap3 = hits*results 
+        results3 = hits.copy()
+
+        for i in np.arange(1,numofgroups3+1):
+            if np.sum(overlap3[labels3 == i]) > 1:
+                results3[labels3==i] = 0.0
+        
+        dumpy1, numberoffp = measurements.label(results3)
+
+
+
     dummy, numofgroups2 = measurements.label(results)
     TP = numofgroups2/numofgroups
     if verbose == True:
-        print ("Found %d cells in the annoated image" % (numofgroups))
-        print ("Successfully detected %d cells" % (numofgroups2))
-        print ("The True Positive (TP) score is %5.2f" % (numofgroups2/numofgroups))
+        if not FP:
+            print ("Found %d cells in the annoated image" % (numofgroups))
+            print ("Successfully detected %d cells" % (numofgroups2))
+            print ("The TP rate is %5.2f" % (numofgroups2/numofgroups))
+        else:
+            print ("Found %d cells in the annoated image" % (numofgroups))
+            print ("Successfully detected %d cells" % (numofgroups2))
+            print ("False positively detected %d cells" % (numberoffp) )
+            print ("The TP/FP rate are %5.2f and %5.3f" % (numofgroups2/numofgroups, numberoffp/numgerofgroups))
+        
     
+
+
     if returnOverlap:
-        return results, TP
+        if FP:
+            return results, results3, TP,FP
+        else:
+            return reultts,TP
     else:
-        return TP
+        if FP:
+            return TP, FP
+        else:
+            return TP
 
 def pasteImage(image, thresd_image, color):
     '''
@@ -222,7 +227,7 @@ def pasteImage(image, thresd_image, color):
         newimage[thresd_image==1,1:3] = 255
     return newimage
 
-def extractTruthMaske(annotateImage):
+def extractTruthMask(annotateImage):
     """
     Return mask (binary images) showing the position of 
     each cell type from the annotateImage
@@ -254,7 +259,7 @@ def extractTruthMaske(annotateImage):
             loc = np.logical_and(loc1,loc2)
             mask[loc] = 1.0
         else:
-            print (i,channel[0],channel[1])
+            #print (i,channel[0],channel[1])
             loc1 = np.equal(annotateImage[:,:,channel[0]],255)
             loc2 = np.equal(annotateImage[:,:,channel[1]],255)
             
@@ -264,6 +269,37 @@ def extractTruthMaske(annotateImage):
     
     return masks
     
+def load_yaml(yamlFile):
+    """
+    Load parameters defined in the yaml file
+    """
+
+    with open(yamlFile) as f:
+        data = yaml.load(f)
+    return data
+
+def readInfilters(filter_dir,filter_names):
+    """
+    Read in previously generated MACH filters AS Well as generate a penalty 
+    filter for the rod filter
+
+    The output is a dict
+    """
+    filters = dict()
+    
+    for i in filter_names:
+        filters[i] = np.loadtxt(filter_dir+"/"+i+'_filter') # read in ndarray
+
+    #generate a penalty filter for the rod MACH filter
+    norm_rod = filters['rod']/np.max(filters['rod'])
+    mask = np.greater(norm_rod,0.4).astype(np.float)
+    mask = morphology.binary_dilation(mask,iterations=2)
+    filters['rodp'] = filters['ram'].copy()
+    filters['rodp'][mask == 1.0] = 0.0
+
+    np.savetxt(filter_dir+'rodp_filter',filters['rodp'])
+
+    return filters
 
 def RodPenalty(rod_hits,rodp_hits,\
                 rodthres=0.32,\
