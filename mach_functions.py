@@ -151,7 +151,7 @@ def GenerateSubImage(Image,
 
 
 def calculate_TP(hits,
-                    marked_truth,
+                marked_truth,
                     verbose=True,
                     FP=False,
                     returnOverlap=False):
