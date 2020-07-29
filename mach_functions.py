@@ -64,7 +64,7 @@ def displayMultImage(images,cmap=None,numbering=True):
 def PreProcessCroppedCells(oriImage):
     """
     Converts the tif image to gray-scale, then inverse the white/black and finally 
-    nornolize it
+    normolize it
     """
     
     newimage = normalize(invert_gray_scale(cv2.cvtColor(oriImage,cv2.COLOR_RGB2GRAY)))
@@ -151,14 +151,14 @@ def GenerateSubImage(Image,
 
 
 def calculate_TP(hits,
-                    marked_truth,
-                    verbose=True,
-                    FP=False,
-                    returnOverlap=False):
+                marked_truth,
+                verbose=True,
+                FP=False,
+                returnOverlap=False):
     '''
     Calculted the True Positive (TP) score and FP (optional)
-    given the hits (the SNR thresholded binary image)
-    and the truth image (binary image)
+    given the hits (binary image showing the detected cells) 
+    and the truth mask image (binary image)
     '''
     labels, numofgroups = measurements.label(marked_truth)
 
@@ -196,8 +196,6 @@ def calculate_TP(hits,
             print ("The TP/FP rate are %5.2f and %5.3f" % (numofgroups2/numofgroups, numberoffp/numgerofgroups))
         
     
-
-
     if returnOverlap:
         if FP:
             return results, results3, TP,FP
