@@ -11,6 +11,7 @@ from scipy.ndimage import measurements
 from scipy.ndimage import morphology
 import imutils
 import yaml
+import os
 
 sys.path = ["./matchedmyo/"] + sys.path
 import util
@@ -105,10 +106,10 @@ def alignRodCellvertically(Image,
         origin = np.array((0, binaryimage.shape[1]))
         line = (dist - origin * np.cos(angle)) / np.sin(angle)
         plt.subplot(1,2,1)
-        plt.imshow(image,origin='lower')
+        plt.imshow(Image,origin='lower')
         plt.plot(origin,line,'r-')
 
-        plt.ylim([0,binayimage.shape[1]])
+        plt.ylim([0,binaryimage.shape[1]])
         plt.xticks([])
         plt.yticks([])
         plt.title('detected directions')
@@ -152,9 +153,9 @@ def GenerateSubImage(Image,
 
 def calculate_TP(hits,
                 marked_truth,
-                    verbose=True,
-                    FP=False,
-                    returnOverlap=False):
+                verbose=True,
+                FP=False,
+                returnOverlap=False):
     '''
     Calculted the True Positive (TP) score and FP (optional)
     given the hits (the SNR thresholded binary image)
@@ -193,7 +194,7 @@ def calculate_TP(hits,
             print ("Found %d cells in the annoated image" % (numofgroups))
             print ("Successfully detected %d cells" % (numofgroups2))
             print ("False positively detected %d cells" % (numberoffp) )
-            print ("The TP/FP rate are %5.2f and %5.3f" % (numofgroups2/numofgroups, numberoffp/numgerofgroups))
+            print ("The TP/FP rate are %5.2f and %5.3f" % (numofgroups2/numofgroups, numberoffp/numofgroups))
         
     
 
@@ -202,7 +203,7 @@ def calculate_TP(hits,
         if FP:
             return results, results3, TP,FP
         else:
-            return reultts,TP
+            return results,TP
     else:
         if FP:
             return TP, FP
@@ -278,29 +279,55 @@ def load_yaml(yamlFile):
         data = yaml.load(f)
     return data
 
-def readInfilters(filter_dir,filter_names):
+def readInfilters(Params):
     """
-    Read in previously generated MACH filters AS Well as generate a penalty 
-    filter for the rod filter
-
+    Read in previously generated MACH filters 
     The output is a dict
     """
-    filters = dict()
+    filter_dir = Params['FilterDir']
     
-    for i in filter_names:
-        filters[i] = np.loadtxt(filter_dir+"/"+i+'_filter') # read in ndarray
-
-    #generate a penalty filter for the rod MACH filter
-    norm_rod = filters['rod']/np.max(filters['rod'])
-    mask = np.greater(norm_rod,0.4).astype(np.float)
-    mask = morphology.binary_dilation(mask,iterations=2)
-    filters['rodp'] = filters['ram'].copy()
-    filters['rodp'][mask == 1.0] = 0.0
-
-    np.savetxt(filter_dir+'rodp_filter',filters['rodp'])
-
+    filters = dict()
+    for i in Params['FilterNames'].keys():
+        filters[i] = dict()
+        for j in Params['FilterNames'][i]:
+            filter = np.loadtxt(filter_dir+"/"+j+'_filter') # read in ndarray
+        
+            filters[i][j] = filter
+    
     return filters
 
+def readInImages(Params):
+    """
+    Read in the images that will be used for detection
+    If it is validation, also read in the annotated true image
+    """
+    Images = dict()
+
+    if not os.path.exists(Params['InputImage']):
+        raise RuntimeError(f"The input image {Params['InputImage']} does not exist, plz double check the image path")
+
+    image = cv2.imread(Params['InputImage'])
+    colorImage = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+    gray_scale_image = PreProcessCroppedCells(colorImage)
+    Images['colorImage'] = colorImage
+    Images['grayImage'] = gray_scale_image
+
+    if Params['TrueImage'] != None:
+    
+        if not  os.path.exists(Params['TrueImage']):
+            raise RuntimeError(f"The annotated image {Params['TrueImage']} does not exist, plz double check the image path")
+
+        truthImage = cv2.imread(Params['TrueImage'])
+        truthImage = cv2.cvtColor(truthImage,cv2.COLOR_BGR2RGB)
+        Images['trueImage'] = truthImage
+        masks = extractTruthMask(truthImage)
+        Images['masks'] = masks
+    else:
+        Images['trueImage'] = None
+        Images['masks'] = None
+    
+    return Images
+ 
 def RodPenalty(rod_hits,rodp_hits,\
                 rodthres=0.32,\
                 rodpthres=0.18,
@@ -350,7 +377,70 @@ def Rodrotate(TestImage,rodfilter,rodpfilter,\
 
     return final_results
 
+def giveRamHyp(image,ramp_filter,hypp_filter,rampthres=0.22,hyppthres=0.18):
+    """
+    give the detected ramified cells and hypertrophic cells 
+    based on the hits of ramifiled process filter (ramp) and
+    hyertrophic process filter (hypp)
+    """
 
+    ramp_hits = ndimage.convolve(image,ramp_filter)
+    hypp_hits = ndimage.convolve(image,hypp_filter)
+    ramp_detected = np.greater(ramp_hits,rampthres).astype(np.float)
+    hypp_detected = np.greater(hypp_hits,hyppthres).astype(np.float)
+
+    # the overlapped area between ramp_detected and hypp_detected are assigned as hyptrophic cells
+    # the remaining part in the ramp_detected are ramified cells
+
+
+    labels, numofgroups = measurements.label(ramp_detected)
+
+    overlap = ramp_detected*hypp_detected
+
+    results = np.ones(ramp_detected.shape)
+    for i in np.arange(1,numofgroups+1):
+        if np.sum(overlap[labels == i]) != 0:
+            results[labels==i] = 0.0
+
+    ram_cells = ramp_detected.copy()
+    hyp_cells = np.zeros(ramp_detected.shape)
+
+    ram_cells[results==0] = 0
+
+    hyp_cells[results == 0] = 1
+    
+    
+    return ram_cells, hyp_cells
+
+def removeDetectedCells(TestImage,detected_cells,bgmthres=0.4):
+    """
+    Remove the detected cells of one filter from the test image so that we can 
+    apply the next filter
+
+    TestImage: gray-scale image
+    detected_cells: binary image of detected cells using one filter
+    bgmthres: thresholding value for cells/background 
+
+    output: new TestImage
+    """
+    # generate a binary image of the test image
+    bimage = np.greater(TestImage,bgmthres).astype(np.float)
+
+    #background gray-scale value
+    bgmValue = np.average(TestImage[bimage==0])
+    labels, numofgroups = measurements.label(bimage)
+
+    overlap = detected_cells*bimage
+
+    results = np.ones(bimage.shape)
+    for i in np.arange(1,numofgroups+1):
+        if np.sum(overlap[labels == i]) != 0:
+            results[labels==i] = 0.0
+
+    newtestImage = TestImage.copy()
+    newtestImage[results==0] = bgmValue
+    
+    return newtestImage
 
     
 

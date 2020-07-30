@@ -1,0 +1,40 @@
+#Parameters used for testing the filtering protocol
+
+InputImage: "./TestImages/newSample.png" #the input image
+TrueImage: "./TestImages/Sample_annotate.png" #the annotated truth image, for validation only. Set as "None" if it is normal run
+
+
+#FilterInfo:
+FilterDir: "./filter_images"
+FilterNames:
+  NormalFilters: ['ram','rod','hyp','amoe','dys']  # normal MACH filter constructed from cropped cells
+  PenaltyFilters: ['rodp','rrodp'] 
+    # "rodp" : penalty filter for rod filter constructed from rampfiled filter by masking out the rod part
+    # "rrodp" : penalty filter for rod filter by reversing the rod filter (1-rod)/np(sum(1-rod)) [demeaned]
+
+  PartialFilters: ['ramp','hypp'] 
+    # "ramp" : process only filter of ramified filter
+    # "hypp" : process only filter of hypertrophic filter
+  
+
+#TODO: To apply the protocol to real image, we may need to add standard preprocessing
+# function to remove the bluedots
+#PreprocessImage:
+#  RemoveBlueDots: True  #
+
+FilterOrder: 1
+# 1: pick up rod --> pick up ramified/hypertrophic --> pick up amoeboid/dystrophic
+# 2: pick up ramified/hypertrophic --> pick up rod --> pick up amoebioid/dystrophic
+
+ThresValues:
+  rod: 0.295
+  rodp: 0.185
+
+  ramp: 0.22
+  hypp: 0.18
+
+  amoe: 0.33
+  area: 210
+
+RodCells:
+  rotationAngles: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90]
