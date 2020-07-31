@@ -123,6 +123,76 @@ def alignRodCellvertically(Image,
 
     return rotatedImage
 
+def construct_test_image(filternames,perct=None, nRows=50,nCols=50):
+    '''
+    construct a test image (size = nRows x nCols filters) using filternames (a list containts the name)
+    and the percentage of each filter
+    TODO: not working, need to change filternames to image list to make it general
+    '''
+    filter_dimes = np.shape(filters[filternames[0]])
+    image_size_x = filter_dimes[0]*nRows
+    image_size_y = filter_dimes[1]*nCols
+    
+    test_image = np.ones((image_size_x,image_size_y))
+    
+    
+    numFilters = len(filternames) # the number of filters
+    
+    for m in np.arange(nRows):
+        for n in np.arange(nCols):
+            prob = np.random.rand()
+            for j in np.arange(numFilters):
+                    if j == 0:
+                        left = 0
+                    else: 
+                        left = np.sum(perct[0:j])
+                    right = left + perct[j]
+                    if prob >= left and prob <= right:
+                        indx = j
+
+            test_image[m*filter_dimes[0]:(m+1)*filter_dimes[0],\
+                        n*filter_dimes[1]:(n+1)*filter_dimes[1]] = filters[filternames[indx]]
+            
+    # now add some gaussian noise
+    test_image = add_gaussian_noise(test_image,var=0.003)
+       
+    return test_image
+
+
+
+def azimuthally_psd(image,bins=30):
+    '''
+    generate the PSD along radial direction, the image is grayscale
+    '''
+    fftimage = np.fft.fft2(image)
+    
+    dimes = fftimage.shape
+    centerX = int(dimes[0]/2)
+    centerY = int(dimes[1]/2)
+    maskimage = np.ones(dimes)
+    maskimage[centerX,centerY] = 0
+    
+    edt_mask = ndimage.distance_transform_edt(maskimage)
+    
+    ori_psd = np.log(np.abs(np.fft.fftshift(fftimage))**2)
+    # max radial length
+    mlen = np.sqrt(centerX**2+centerY**2)
+    spacing = mlen/bins
+    
+    
+    psd = []
+    dist = []
+    for i in np.arange(bins):
+        low_limit = i*spacing
+        high_limit = (i+1)*spacing
+        dist_i = 0.5*(low_limit + high_limit)
+        
+        indx = np.logical_and(np.greater_equal(edt_mask,low_limit),np.less(edt_mask,high_limit))
+        psd_i = np.sum(ori_psd[indx])/np.sum(maskimage[indx])
+        psd.append(psd_i)
+        dist.append(dist_i)
+        
+    return dist,psd
 
 
 
@@ -411,6 +481,35 @@ def giveRamHyp(image,ramp_filter,hypp_filter,rampthres=0.22,hyppthres=0.18):
     
     
     return ram_cells, hyp_cells
+
+def giveAmoeDys(image,amoefilter,amoethres=0.22,areathes=20):
+    """
+    give the detected amoeboid and dystrophic cells 
+    based on the convolution hits of amoeboid filter 
+
+    since the amoe and dys filters ahve similar convolution results
+    we only use the amoe_hits
+    First thres the aomoe hits and discrimnate amoe/dys cells 
+    based on area (dys > amoe)
+    """
+    amoe_hits = ndimage.convolve(image,amoefilter)
+    amoe_detected = np.greater(amoe_hits,amoethres).astype(np.float)
+
+
+
+    labels, numofgroups = measurements.label(amoe_detected)
+    amoe_cells = amoe_detected.copy()
+    dys_cells = amoe_detected.copy()
+
+    results = np.ones(amoe_detected.shape)
+    for i in np.arange(1,numofgroups+1):
+        
+        if np.sum(amoe_detected[labels == i]) <= areathes:
+            dys_cells[labels == i] = 0.0
+        else:
+            amoe_cells[labels == i] = 0.0
+
+    return amoe_cells, dys_cells
 
 def removeDetectedCells(TestImage,detected_cells,bgmthres=0.4):
     """
