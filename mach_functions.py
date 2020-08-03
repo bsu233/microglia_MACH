@@ -542,4 +542,86 @@ def removeDetectedCells(TestImage,detected_cells,bgmthres=0.4):
     return newtestImage
 
     
+class machPerformance:
+    """
+    A class to store the peformance of mach filtering
+    """
 
+    def __init__(self, mach_results, masks):
+        """
+        The mach_results a dict that contains the detected_cells by the filtering 
+        protocol
+        And the annotated masks for each type of cells
+        """
+        self.detectedCells = mach_results
+        self.masks = masks
+        self.TP = dict()
+        self.TP_weights = dict()
+        self.FP = dict()
+        self.FP_weights = dict()
+        self.TP_cells = dict()
+        self.FP_cells = dict()
+        self.PFscore = 0.0
+        self.barChart = None
+
+    def initialWeights(self):
+        for cellType in detectedCells.keys():
+            self.TP_weights[cellType] = 1.0
+            self.FP_weights[cellType] = 1.0
+        
+
+    def calculate_TPFP(self):
+        for cellType, dCells in enumerate(self.detectedCells.items()):
+            TP_cells, FP_cells, TP, FP = calculate_TP(dCells,mask[cellType],FP=True, returnOverlap=True)
+            self.TP[cellType] = TP
+            self.FP[cellType] = FP
+            self.TP_cells[cellType] = TP_cells
+            self.FP_cells[cellType] = FP_cells
+    
+
+    def setTPWeights(self,newTPWeights):
+        for cType, newW in newTPWeights.items()
+            self.TP_weights(cType) = newW
+    
+     def setFPWeights(self,newFPWeights):
+        for cType, newW in newFPWeights.items()
+            self.FP_weights(cType) = newW
+
+    initialWeights()
+
+
+    def calculatePFscore(self):
+        """
+        """
+        PFscore = 0
+        for i in self.detectedCells.keys():
+            PF.score += self.TP_weights[i]*(1-self.TP[i]) + self.FP_weights[i]*self.FP[i]
+        
+        self.PFscore = PFscore
+
+
+
+
+        
+        
+
+
+            
+
+            
+      self.FP = FP
+      self.TP = TP
+      self.TP_cells = TP_cells
+      self.FP_cells = FP_cells
+      self.TP_weight = TP_weight
+      self.FP_weight = FP_weight
+
+    def __add__(self,other):
+        """
+        Performance criterion
+        """
+        TP_sum = self.TP_weight*(1-self.TP) + other.FP_weight*(1-other.FP)
+        FP_sum = self.FP_weight*self.FP + other.FP_weight*other.FP
+
+        return TP_sum + FP_sum
+    
