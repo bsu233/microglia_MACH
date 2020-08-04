@@ -17,6 +17,15 @@ sys.path = ["./matchedmyo/"] + sys.path
 import util
 
 
+truthColors = {
+    'ram': 'green',
+    'rod': 'red',
+    'amoe': 'cyan',
+    'hyp': 'blue',
+    'dys': 'yellow'
+    }
+
+
 def invert_gray_scale(images):
     """
     make cells as white and background as black
@@ -221,64 +230,58 @@ def GenerateSubImage(Image,
     
 
 
-def calculate_TP(hits,
+def getTPFP(detectedCells,
                 marked_truth,
                 verbose=True,
-                FP=False,
                 returnOverlap=False):
     '''
-    Calculted the True Positive (TP) score and FP (optional)
-    given the hits (the SNR thresholded binary image)
-    and the truth image (binary image)
+    Calculted the True Positive (TP) score and False Positive (FP) score
+    given the detected cells by MACH protocol and the annotated truth image
+    Both the detected cells and marked_truth are binary images.
     '''
     labels, numofgroups = measurements.label(marked_truth)
 
-    overlap = hits*marked_truth
+    overlap = detectedCells*marked_truth
 
     results = np.zeros(marked_truth.shape)
     for i in np.arange(1,numofgroups+1):
         if np.sum(overlap[labels == i]) > 1:
             results[labels==i] = 1.0
 
-    if FP:
-        labels3, numofgroups3 = measurements.label(hits)
-        overlap3 = hits*results 
-        results3 = hits.copy()
-
-        for i in np.arange(1,numofgroups3+1):
-            if np.sum(overlap3[labels3 == i]) > 1:
-                results3[labels3==i] = 0.0
-        
-        dumpy1, numberoffp = measurements.label(results3)
-
-
-
-    dummy, numofgroups2 = measurements.label(results)
-    TP = numofgroups2/numofgroups
-    if verbose == True:
-        if not FP:
-            print ("Found %d cells in the annoated image" % (numofgroups))
-            print ("Successfully detected %d cells" % (numofgroups2))
-            print ("The TP rate is %5.2f" % (numofgroups2/numofgroups))
-        else:
-            print ("Found %d cells in the annoated image" % (numofgroups))
-            print ("Successfully detected %d cells" % (numofgroups2))
-            print ("False positively detected %d cells" % (numberoffp) )
-            print ("The TP/FP rate are %5.2f and %5.3f" % (numofgroups2/numofgroups, numberoffp/numofgroups))
-        
     
+    labels3, numofgroups3 = measurements.label(detectedCells)
+    overlap3 = detectedCells*results 
+    results3 = detectedCells.copy()
 
+    for i in np.arange(1,numofgroups3+1):
+        if np.sum(overlap3[labels3 == i]) > 1:
+            results3[labels3==i] = 0.0
+        
+    dummy1, numberoffp = measurements.label(results3)
+
+
+
+    dummy2, numofgroups2 = measurements.label(results)
+    TP = numofgroups2/numofgroups
+    FP = numberoffp/numofgroups
+    if verbose == True:
+        print ("Found %d cells in the annoated image" % (numofgroups))
+        print ("Successfully detected %d cells" % (numofgroups2))
+        print ("False positively detected %d cells" % (numberoffp) )
+        print ("The TP/FP rate are %5.2f and %5.3f" % (numofgroups2/numofgroups, numberoffp/numofgroups))
+    
+    # store the cell numbers 
+    cellNums = dict()
+    cellNums['AnnotatedCell'] = numofgroups
+    cellNums['TPCells'] = numofgroups2
+    cellNums['FPCells'] = numberoffp
+        
 
     if returnOverlap:
-        if FP:
-            return results, results3, TP,FP
-        else:
-            return results,TP
+        return results, results3, TP,FP, cellNums
     else:
-        if FP:
-            return TP, FP
-        else:
-            return TP
+        return TP, FP, cellNums
+    
 
 def pasteImage(image, thresd_image, color):
     '''
@@ -303,14 +306,6 @@ def extractTruthMask(annotateImage):
     Return mask (binary images) showing the position of 
     each cell type from the annotateImage
     """
-    truthColors = {
-    'ram': 'green',
-    'rod': 'red',
-    'amoe': 'cyan',
-    'hyp': 'blue',
-    'dys': 'yellow'
-    }
-
     colorchannels = {
     'green' : [1],
     'red' : [0],
@@ -555,6 +550,7 @@ class machPerformance:
         """
         self.detectedCells = mach_results
         self.masks = masks
+        self.CellNums = dict()
         self.TP = dict()
         self.TP_weights = dict()
         self.FP = dict()
@@ -562,66 +558,79 @@ class machPerformance:
         self.TP_cells = dict()
         self.FP_cells = dict()
         self.PFscore = 0.0
-        self.barChart = None
 
-    def initialWeights(self):
-        for cellType in detectedCells.keys():
+    def resetTPFPWeights(self):
+        """
+        setting the weights of TP/FP to 1.0
+        """
+        for cellType in self.detectedCells.keys():
             self.TP_weights[cellType] = 1.0
             self.FP_weights[cellType] = 1.0
+
+    def setTPWeights(self,newTPWeights):
+
+        for cType, newW in newTPWeights.items():
+            self.TP_weights[cType] = newW
+    
+    def setFPWeights(self,newFPWeights):
+        for cType, newW in newFPWeights.items():
+            self.FP_weights[cType] = newW    
         
 
-    def calculate_TPFP(self):
-        for cellType, dCells in enumerate(self.detectedCells.items()):
-            TP_cells, FP_cells, TP, FP = calculate_TP(dCells,mask[cellType],FP=True, returnOverlap=True)
+    def calculateTPFP(self):
+        for cellType, dCells in self.detectedCells.items():
+            print (cellType)
+            TP_cells, FP_cells, TP, FP, cellNums = getTPFP(dCells,self.masks[cellType],verbose=False,returnOverlap=True)
             self.TP[cellType] = TP
             self.FP[cellType] = FP
             self.TP_cells[cellType] = TP_cells
             self.FP_cells[cellType] = FP_cells
+            self.CellNums[cellType] = cellNums
     
-
-    def setTPWeights(self,newTPWeights):
-        for cType, newW in newTPWeights.items()
-            self.TP_weights(cType) = newW
-    
-     def setFPWeights(self,newFPWeights):
-        for cType, newW in newFPWeights.items()
-            self.FP_weights(cType) = newW
-
-    initialWeights()
-
 
     def calculatePFscore(self):
         """
+        Calcualte the Performance Criterion based on the TP/FP score
+        of each cell type and the associated weights.
         """
         PFscore = 0
         for i in self.detectedCells.keys():
-            PF.score += self.TP_weights[i]*(1-self.TP[i]) + self.FP_weights[i]*self.FP[i]
-        
+            PFscore += self.TP_weights[i]*(1-self.TP[i]) + self.FP_weights[i]*self.FP[i]
+
         self.PFscore = PFscore
+        return PFscore
 
-
-
-
-        
-        
-
-
-            
-
-            
-      self.FP = FP
-      self.TP = TP
-      self.TP_cells = TP_cells
-      self.FP_cells = FP_cells
-      self.TP_weight = TP_weight
-      self.FP_weight = FP_weight
-
-    def __add__(self,other):
+    def plotTPFPfigure(self,figname):
         """
-        Performance criterion
+        Plot the TP/FP score of each cell type
         """
-        TP_sum = self.TP_weight*(1-self.TP) + other.FP_weight*(1-other.FP)
-        FP_sum = self.FP_weight*self.FP + other.FP_weight*other.FP
+        annotatedCellNums = dict()
+        TPCellNums = dict()
+        FPCellNums = dict()
 
-        return TP_sum + FP_sum
+        for cellType in self.detectedCells.keys():
+            annotatedCellNums[cellType] = self.CellNums[cellType]['AnnotatedCell']
+            TPCellNums[cellType] = self.CellNums[cellType]['TPCells']
+            FPCellNums[cellType] = self.CellNums[cellType]['FPCells']
+
+        width=0.4
+        barlist1 = plt.bar(np.arange(len(annotatedCellNums.keys())),annotatedCellNums.values(),width=width,alpha=0.3)
+        barlist2 = plt.bar(np.arange(len(TPCellNums.keys())),TPCellNums.values(),width=width,alpha=1)
+        barlist3 = plt.bar(np.arange(len(FPCellNums.keys()))+width,FPCellNums.values(),width=width,alpha=0.3,hatch="*",ecolor='b')
+
+        for i, j in enumerate(barlist1):
+            j.set_color(truthColors[list(annotatedCellNums.keys())[i]])
+        for i, j in enumerate(barlist2):
+            j.set_color(truthColors[list(TPCellNums.keys())[i]])
+        for i, j in enumerate(barlist3):
+            j.set_color(truthColors[list(FPCellNums.keys())[i]])
+
+        plt.ylabel('Cell Nums')
+        plt.xticks(np.arange(len(annotatedCellNums.keys())),list(annotatedCellNums.keys()))
+        lg = plt.legend([barlist1[0],barlist2[0],barlist3[0]],['Annotated Cells','TP Cells','FP Cells'],loc=(1, 0.75))
+        plt.savefig(figname,bbox_extra_artists=(lg,), 
+            bbox_inches='tight',
+            dpi=300)
     
+
+            
