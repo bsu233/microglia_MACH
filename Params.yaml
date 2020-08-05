@@ -22,6 +22,7 @@ FilterNames:
 #PreprocessImage:
 #  RemoveBlueDots: True  #
 
+#TODO: implement the FilterOrder 2
 FilterOrder: 1
 # 1: pick up rod --> pick up ramified/hypertrophic --> pick up amoeboid/dystrophic
 # 2: pick up ramified/hypertrophic --> pick up rod --> pick up amoebioid/dystrophic
@@ -29,6 +30,7 @@ FilterOrder: 1
 ThresValues:
   rod: 0.295
   rodp: 0.185
+  rrodp: 1.35
 
   ramp: 0.22
   hypp: 0.18
@@ -36,5 +38,6 @@ ThresValues:
   amoe: 0.33
   area: 210
 
-RodCells:
-  rotationAngles: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90]
+
+PenaltyFilterOption: 2 # 1--> use rodp, 2--> use rrodp
+RotationAngles: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90] # angles for the rotation of the rod and the penalty filter
