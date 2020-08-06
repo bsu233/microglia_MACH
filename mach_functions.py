@@ -301,6 +301,34 @@ def pasteImage(image, thresd_image, color):
         newimage[thresd_image==1,1:3] = 255
     return newimage
 
+def addGrid(image,correlationPlane=False,spacing=75):
+    """
+    Add grid onto the image to help visulize the resutls
+    The correlation plane (covolution results) is a special case as we
+    need to keep the vmax/vmin of the colorbar unchanged
+    """
+    newImage=image.copy()
+    X = image.shape[0]
+    Y = image.shape[1]
+    xgrid = np.arange(0,X,spacing)
+    ygrid = np.arange(0,Y,spacing)
+    
+    if len(image.shape) == 3:
+        vmax = 255
+    else:
+        vmax = 1.0
+
+    if correlationPlane:
+        vmax = (np.min(image) + (np.max(image)-np.min(image))*0.5)/0.3
+
+    for i in xgrid:
+        newImage[i-2:i+2,:] = vmax*0.3
+    for j in ygrid:
+        newImage[:,j-2:j+2] = vmax*0.3
+
+    return newImage 
+
+
 def extractTruthMask(annotateImage):
     """
     Return mask (binary images) showing the position of 
