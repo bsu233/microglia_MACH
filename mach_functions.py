@@ -230,6 +230,23 @@ def GenerateSubImage(Image,
     
 
 
+def divde_big_image(bigimage,grayscale=True):
+    """
+    divided the big grayscale image into 
+    100 small images
+    """
+    dx = int(bigimage.shape[0]/10)
+    dy = int(bigimage.shape[1]/10)
+    
+    if grayscale:
+        small_images = [bigimage[dx*i:dx*(i+1),dy*j:dy*(j+1)]\
+                for i in np.arange(10) for j in np.arange(10)]
+    else:
+        small_images = [bigimage[dx*i:dx*(i+1),dy*j:dy*(j+1),:]\
+                for i in np.arange(10) for j in np.arange(10)]
+    return small_images
+
+
 def getTPFP(detectedCells,
                 marked_truth,
                 verbose=True,
@@ -301,7 +318,7 @@ def pasteImage(image, thresd_image, color):
         newimage[thresd_image==1,1:3] = 255
     return newimage
 
-def addGrid(image,correlationPlane=False,spacing=75):
+def addGrid(image,correlationPlane=False,spacing=75,lw=2):
     """
     Add grid onto the image to help visulize the resutls
     The correlation plane (covolution results) is a special case as we
@@ -322,9 +339,9 @@ def addGrid(image,correlationPlane=False,spacing=75):
         vmax = (np.min(image) + (np.max(image)-np.min(image))*0.5)/0.3
 
     for i in xgrid:
-        newImage[i-2:i+2,:] = vmax*0.3
+        newImage[i-lw:i+lw,:] = vmax*0.3
     for j in ygrid:
-        newImage[:,j-2:j+2] = vmax*0.3
+        newImage[:,j-lw:j+lw] = vmax*0.3
 
     return newImage 
 
@@ -421,54 +438,99 @@ def readInImages(Params):
     
     return Images
  
-def RodPenalty(rod_hits,rodp_hits,\
-                rodthres=0.32,\
-                rodpthres=0.18,
-                ):
+def RodSNR(image,filter,penaltyfilter,snrthres,returnCorrelationPlane=False):
     """
-    Retrun a binary image representing the results of
-    "rod_hits - penalty_hits"
-    where rod_hits and penaly_hits are convolution results of image against the
-    rod filter and rodp (penanlty) filter 
+    Using the rod filter and a penalty filter to detected the 
+    rod-shaped cells
+    SNF = Cr/Crp where Cr is the convolution results of rod filter and
+    Crp is the convolution results of the rod penalty filter
     """
-    rod_mask = np.greater(rod_hits,rodthres).astype(np.float)
-    penaltymask = np.greater(rodp_hits,rodpthres).astype(np.float)
-    penaltymask = morphology.binary_closing(penaltymask,iterations=3)
-    final_results = rod_mask.copy()
-
-    a1, a2 = measurements.label(rod_mask)
-    for i in np.arange(a2):
-        if np.sum(final_results[a1 == i+1]) <= 75*75*0.06: #area restraint
-            final_results[a1 == i+1] = 0
-        if  np.sum(penaltymask[a1 == i+1]) != 0:
-            final_results[a1 == i+1] = 0
+    Cr = ndimage.convolve(image,filter)
+    Crp = ndimage.convolve(image,penaltyfilter)
     
-    return final_results # a binary image
+    SNR = Cr/Crp
 
-def Rodrotate(TestImage,rodfilter,rodpfilter,\
-            rod_thres = 0.3,\
-            rodp_thres = 0.2,\
-            iters=[0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90]):
-    """
-    Rotate the rodfilter and rodp filter with angles in the iters list,
-    For each angle, convolve the TestImage against the rod filter and rodp filter
-
-    The final output is a binary image showing the detection of cells when putting all angles
-    together (logical_or)
-    """
+    # thresholding SNR
+    thresSNR = np.greater(SNR,snrthres).astype(np.float)
     
-    final_results = np.zeros((TestImage.shape[0],TestImage.shape[1]))
-    for i in iters:
+    if returnCorrelationPlane:
+        return thresSNR, Cr, Crp
+    else:
+        return thresSNR
+
+
+#### Temporarily deprecated
+#def RodPenalty(rod_hits,rodp_hits,\
+#                rodthres=0.32,\
+#                rodpthres=0.18,
+#                ):
+#    """
+#    Retrun a binary image representing the results of
+#    "rod_hits - penalty_hits"
+#    where rod_hits and penaly_hits are convolution results of image against the
+#    rod filter and rodp (penanlty) filter 
+#    """
+#    rod_mask = np.greater(rod_hits,rodthres).astype(np.float)
+#    penaltymask = np.greater(rodp_hits,rodpthres).astype(np.float)
+#    penaltymask = morphology.binary_closing(penaltymask,iterations=3)
+#    final_results = rod_mask.copy()
+#
+#    a1, a2 = measurements.label(rod_mask)
+#    for i in np.arange(a2):
+#        if np.sum(final_results[a1 == i+1]) <= 75*75*0.06: #area restraint
+#            final_results[a1 == i+1] = 0
+#        if  np.sum(penaltymask[a1 == i+1]) != 0:
+#
+#            final_results[a1 == i+1] = 0
+#    
+#   return final_results # a binary image
+
+
+#def Rodrotate(TestImage,rodfilter,rodpfilter,\
+#            rod_thres = 0.3,\
+#            rodp_thres = 0.2,\
+#            iters=[0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90]):
+#    """
+#    Rotate the rodfilter and rodp filter with angles in the iters list,
+#    For each angle, convolve the TestImage against the rod filter and rodp filter
+#
+#    The final output is a binary image showing the detection of cells when putting all angles
+#    together (logical_or)
+#    """
+    
+#    final_results = np.zeros((TestImage.shape[0],TestImage.shape[1]))
+#    for i in iters:
+#        rotated_rod = imutils.rotate(rodfilter,i)
+#        rotated_rodp = imutils.rotate(rodpfilter,i)
+#        rod_hits = ndimage.convolve(TestImage,rotated_rod)
+#        rodp_hits = ndimage.convolve(TestImage,rotated_rodp)
+#        results = RodPenalty(rod_hits,rodp_hits,rodthres= rod_thres,rodpthres = rodp_thres)
+
+#        # megre the results of this angle into the final_results
+#        final_results = np.logical_or(final_results,results).astype(np.float)
+
+#    return final_results
+#
+def giveRod(TestImage,rodfilter,penaltyfilter,snrthres,iters=[20,40,60,80,100,120,140,160,180]):
+    """
+    Rotate the rod and pennalty filter for each angle in the iters,
+    get the SNR and the thresSNR results, merge the detected cells at each angle and give the 
+    final deteced rod cells
+    """
+     CrPlanes = dict()
+
+     final_results = np.zeros((TestImage.shape[0],TestImage.shape[1]))
+     for i in iters:
         rotated_rod = imutils.rotate(rodfilter,i)
-        rotated_rodp = imutils.rotate(rodpfilter,i)
-        rod_hits = ndimage.convolve(TestImage,rotated_rod)
-        rodp_hits = ndimage.convolve(TestImage,rotated_rodp)
-        results = RodPenalty(rod_hits,rodp_hits,rodthres= rod_thres,rodpthres = rodp_thres)
-
-        # megre the results of this angle into the final_results
+        rotated_rodp = imutils.rotate(penaltyfilter,i)
+        rodcells, Cr, Crp  = RodSNR(TestImage,rotated_rod,rotated_rodp,snrthres=snrthres,returnCorrelationPlane=True)
+    # megre the results of this angle into the final_results
         final_results = np.logical_or(final_results,results).astype(np.float)
+        CrPlanes[i] = [Cr,Crp]
 
-    return final_results
+    return final_results, CrPlanes
+
+    
 
 def giveRamHyp(image,ramp_filter,hypp_filter,rampthres=0.22,hyppthres=0.18):
     """
