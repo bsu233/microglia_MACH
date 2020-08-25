@@ -71,13 +71,16 @@ def displayMultImage(images,cmap=None,numbering=True):
                 plt.title(str(i+1))
             plt.subplots_adjust(wspace=0,hspace=0)
 
-def PreProcessCroppedCells(oriImage):
+def invertGrayImage(oriImage):
     """
-    Converts the tif image to gray-scale, then inverse the white/black and finally 
-    nornolize it
+    Converts the image to gray scale, then inverse the white/black and finally 
+    normolize it
+
+    The oriImage is the output of cv2.imread, by default, the color channels are 
+    BGR, so we use cv2.COLOR_BGR2GRAY to convert it to gray scale
     """
     
-    newimage = normalize(invert_gray_scale(cv2.cvtColor(oriImage,cv2.COLOR_RGB2GRAY)))
+    newimage = normalize(invert_gray_scale(cv2.cvtColor(oriImage,cv2.COLOR_BGR2GRAY)))
 
     return newimage
 
@@ -318,6 +321,27 @@ def pasteImage(image, thresd_image, color):
         newimage[thresd_image==1,1:3] = 255
     return newimage
 
+def cleanImage(image,cellThres=125,BG=[202,202,196]):
+    """
+    Cleaning the image by removing the nucleus (blue dots) and setting the background
+    to a use-defined value.
+    First thresholding the image using blue channel info with user-specified values (cellThres)
+    as the cells and nucleus have largest contrast in this channel. 
+    Then setting the background colors
+    """
+    blueChannel = 255 - image[:,:,0] # reverse the intentsity, the cv2 read image in BGR order, 
+    # thresholding 
+    thres = np.greater(blueChannel,cellThres).astype(np.float)
+
+    newImage = image.copy()
+    newImage[thres == 0, 0] = BG[0]
+    newImage[thres == 0, 1] = BG[1]
+    newImage[thres == 0, 2] = BG[2]
+
+    return newImage
+
+
+
 def addGrid(image,correlationPlane=False,spacing=75,lw=2):
     """
     Add grid onto the image to help visulize the resutls
@@ -418,7 +442,7 @@ def readInImages(Params):
 
     image = cv2.imread(Params['InputImage'])
     colorImage = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
-    gray_scale_image = PreProcessCroppedCells(colorImage)
+    gray_scale_image = invertGrayImage(colorImage)
     Images['colorImage'] = colorImage
     Images['grayImage'] = gray_scale_image
 
@@ -511,23 +535,68 @@ def RodSNR(image,filter,penaltyfilter,snrthres,returnCorrelationPlane=False):
 
 #    return final_results
 #
-def giveRod(TestImage,rodfilter,penaltyfilter,snrthres,iters=[20,40,60,80,100,120,140,160,180]):
+def giveRod(TestImage,rodfilter,penaltyfilter,\
+            iters=[20,40,60,80,100,120,140,160,180],\
+            snrthres=0.27,\
+            somaFilter=None, 
+            somathres=0.32,
+            fragRodRefine=True,\
+            areaRefine=True,\
+            areathres = 0.05):
     """
     Rotate the rod and pennalty filter for each angle in the iters,
-    get the SNR and the thresSNR results, merge the detected cells at each angle and give the 
+    get the SNR and then threshold (snrthres), merge the detected cells at each angle and give the 
     final deteced rod cells
-    """
-     CrPlanes = dict()
 
-     final_results = np.zeros((TestImage.shape[0],TestImage.shape[1]))
-     for i in iters:
+    The final detected cells will go through two refining processes
+    For the fragRodRefine process, a soma only filter is needed, currently, we simply use the amoeboid filter
+    For the areaRefine process, we request that the detected cells must have 5% of filter size (75*75*0.05)
+    """
+    CrPlanes = dict()
+
+    final_results = np.zeros((TestImage.shape[0],TestImage.shape[1]))
+    for i in iters:
         rotated_rod = imutils.rotate(rodfilter,i)
         rotated_rodp = imutils.rotate(penaltyfilter,i)
         rodcells, Cr, Crp  = RodSNR(TestImage,rotated_rod,rotated_rodp,snrthres=snrthres,returnCorrelationPlane=True)
     # megre the results of this angle into the final_results
-        final_results = np.logical_or(final_results,results).astype(np.float)
+        final_results = np.logical_or(final_results,rodcells).astype(np.float)
         CrPlanes[i] = [Cr,Crp]
 
+    
+    # Filtering the resutls
+    
+    labels, numofgroups = measurements.label(final_results)
+
+
+    if fragRodRefine:  
+    #1) use the soma filter correlation plane to reduce false positive detection 
+    #  (fragmented rod-like cells) in which two sepearated amoeboid cells 
+    #  produces a false positive detection 
+    #   ooo   ooo    /ooo==ooo\
+    #   ooo   ooo    \ooo==ooo/ 
+        somaCrPlane = ndimage.convolve(TestImage,somaFilter)
+        somaDetected = np.greater(somaCrPlane,somathres).astype(np.float)
+
+        overlap = somaDetected*final_results
+
+    # get the centers of the detection
+        labels, nGroups = measurements.label(final_results)
+        centers = measurements.center_of_mass(final_results, labels,list(range(1,nGroups+1)))
+
+    # check if the somaDetected overlapped with center of rod detections
+        for i in range(nGroups):
+            if overlap[int(centers[i][0]),int(centers[i][1])] == 0:
+                final_results[labels == i+1] = 0
+
+
+    if areaRefine:  
+        labels, numofgroups = measurements.label(final_results)
+        for i in range(1,numofgroups+1):
+            if np.sum(final_results[labels==i])  <= 75*75*0.05:
+                final_results[labels == i] = 0.0
+
+    #put an area restraint: if the detected area are too small, ignore 
     return final_results, CrPlanes
 
     

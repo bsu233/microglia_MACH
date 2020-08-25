@@ -8,9 +8,10 @@ TrueImage: "./TestImages/Sample_annotate.png" #the annotated truth image, for va
 FilterDir: "./filter_images"
 FilterNames:
   NormalFilters: ['ram','rod','hyp','amoe','dys']  # normal MACH filter constructed from cropped cells
-  PenaltyFilters: ['rodp','rrodp'] 
+  PenaltyFilters: ['rodp','rrodp','ramoep'] 
     # "rodp" : penalty filter for rod filter constructed from rampfiled filter by masking out the rod part
-    # "rrodp" : penalty filter for rod filter by reversing the rod filter (1-rod)/np(sum(1-rod)) [demeaned]
+    # "rrodp" : penalty filter for rod filter by reversing the rod filter [np.max(rod) - rod]
+    # "ramoep": similar to rrodp, reversing the amoe filter
 
   PartialFilters: ['ramp','hypp'] 
     # "ramp" : process only filter of ramified filter
