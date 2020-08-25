@@ -593,7 +593,7 @@ def giveRod(TestImage,rodfilter,penaltyfilter,\
     if areaRefine:  
         labels, numofgroups = measurements.label(final_results)
         for i in range(1,numofgroups+1):
-            if np.sum(final_results[labels==i])  <= 75*75*0.05:
+            if np.sum(final_results[labels==i])  <= 75*75*areathres:
                 final_results[labels == i] = 0.0
 
     #put an area restraint: if the detected area are too small, ignore 
