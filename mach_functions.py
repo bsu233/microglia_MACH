@@ -207,29 +207,6 @@ def azimuthally_psd(image,bins=30):
     return dist,psd
 
 
-
-def GenerateSubImage(Image,
-                    Left = 15,
-                    Right = 15,
-                    Interval = 5):
-    """
-    for each aligned image, sample subimages spaning the +15/-15 degree centered at the vertical 
-     line, these subimages will be used to generate MACH filter
-    """
-    rnum = int(Right/Interval)
-    lnum = int(Left/Interval)
-
-    angles = []
-    for i in np.arange(rnum+1):
-        angles.append(i*Interval)
-    for i in np.arange(1,lnum+1):
-        angles.append(360-i*Interval)
-
-    subimages = []
-    for i in angles:
-        subimages.append(imutils.rotate(Image,i))
-
-    return subimages
     
 
 
@@ -462,87 +439,28 @@ def readInImages(Params):
     
     return Images
  
-def RodSNR(image,filter,penaltyfilter,snrthres,returnCorrelationPlane=False):
+
+def areaRefinement(detectedcells, areathres=0.02):
     """
-    Using the rod filter and a penalty filter to detected the 
-    rod-shaped cells
-    SNF = Cr/Crp where Cr is the convolution results of rod filter and
-    Crp is the convolution results of the rod penalty filter
+    For each type of detected cells, if the detection are too small, ignore
+    Currently the filter size is 75x75, so if the detection is <3% of the size, ignore
     """
-    Cr = ndimage.convolve(image,filter)
-    Crp = ndimage.convolve(image,penaltyfilter)
+    labels, nGroups = measurements.label(detectedcells)
+    for i in range(1,nGroups+1):
+            if np.sum(detectedcells[labels==i])  <= 75*75*areathres:
+                detectedcells[labels == i] = 0.0
     
-    SNR = Cr/Crp
-
-    # thresholding SNR
-    thresSNR = np.greater(SNR,snrthres).astype(np.float)
-    
-    if returnCorrelationPlane:
-        return thresSNR, Cr, Crp
-    else:
-        return thresSNR
+    return detectedcells
 
 
-#### Temporarily deprecated
-#def RodPenalty(rod_hits,rodp_hits,\
-#                rodthres=0.32,\
-#                rodpthres=0.18,
-#                ):
-#    """
-#    Retrun a binary image representing the results of
-#    "rod_hits - penalty_hits"
-#    where rod_hits and penaly_hits are convolution results of image against the
-#    rod filter and rodp (penanlty) filter 
-#    """
-#    rod_mask = np.greater(rod_hits,rodthres).astype(np.float)
-#    penaltymask = np.greater(rodp_hits,rodpthres).astype(np.float)
-#    penaltymask = morphology.binary_closing(penaltymask,iterations=3)
-#    final_results = rod_mask.copy()
-#
-#    a1, a2 = measurements.label(rod_mask)
-#    for i in np.arange(a2):
-#        if np.sum(final_results[a1 == i+1]) <= 75*75*0.06: #area restraint
-#            final_results[a1 == i+1] = 0
-#        if  np.sum(penaltymask[a1 == i+1]) != 0:
-#
-#            final_results[a1 == i+1] = 0
-#    
-#   return final_results # a binary image
-
-
-#def Rodrotate(TestImage,rodfilter,rodpfilter,\
-#            rod_thres = 0.3,\
-#            rodp_thres = 0.2,\
-#            iters=[0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90]):
-#    """
-#    Rotate the rodfilter and rodp filter with angles in the iters list,
-#    For each angle, convolve the TestImage against the rod filter and rodp filter
-#
-#    The final output is a binary image showing the detection of cells when putting all angles
-#    together (logical_or)
-#    """
-    
-#    final_results = np.zeros((TestImage.shape[0],TestImage.shape[1]))
-#    for i in iters:
-#        rotated_rod = imutils.rotate(rodfilter,i)
-#        rotated_rodp = imutils.rotate(rodpfilter,i)
-#        rod_hits = ndimage.convolve(TestImage,rotated_rod)
-#        rodp_hits = ndimage.convolve(TestImage,rotated_rodp)
-#        results = RodPenalty(rod_hits,rodp_hits,rodthres= rod_thres,rodpthres = rodp_thres)
-
-#        # megre the results of this angle into the final_results
-#        final_results = np.logical_or(final_results,results).astype(np.float)
-
-#    return final_results
-#
 def giveRod(TestImage,rodfilter,penaltyfilter,\
-            iters=[20,40,60,80,100,120,140,160,180],\
-            snrthres=0.27,\
+            iters=[15,30,45,60,75,90,105,120,135,150,165,180],\
+            snrthres=2.0,\
             somaFilter=None, 
             somathres=0.32,
             fragRodRefine=True,\
             areaRefine=True,\
-            areathres = 0.05):
+            areathres = 0.03):
     """
     Rotate the rod and pennalty filter for each angle in the iters,
     get the SNR and then threshold (snrthres), merge the detected cells at each angle and give the 
@@ -558,11 +476,14 @@ def giveRod(TestImage,rodfilter,penaltyfilter,\
     for i in iters:
         rotated_rod = imutils.rotate(rodfilter,i)
         rotated_rodp = imutils.rotate(penaltyfilter,i)
-        rodcells, Cr, Crp  = RodSNR(TestImage,rotated_rod,rotated_rodp,snrthres=snrthres,returnCorrelationPlane=True)
-    # megre the results of this angle into the final_results
-        final_results = np.logical_or(final_results,rodcells).astype(np.float)
+        
+        # do convolution
+        Cr = ndimage.convolve(TestImage,rotated_rod)
+        Crp = ndimage.convolve(TestImage,rotated_rodp)
+        SNR = Cr/Crp
         CrPlanes[i] = [Cr,Crp]
-
+        rodcells = np.greater(SNR,snrthres).astype(np.float)
+        final_results = np.logical_or(final_results,rodcells).astype(np.float)
     
     # Filtering the resutls
     
@@ -590,13 +511,13 @@ def giveRod(TestImage,rodfilter,penaltyfilter,\
                 final_results[labels == i+1] = 0
 
 
-    if areaRefine:  
-        labels, numofgroups = measurements.label(final_results)
-        for i in range(1,numofgroups+1):
-            if np.sum(final_results[labels==i])  <= 75*75*areathres:
-                final_results[labels == i] = 0.0
+    if areaRefine:
+        final_results = areaRefinement(final_results)
+    # 2) put an area restraint: if the detected area are too small, ignore   
+        #for i in range(1,nGroups+1):
+            #if np.sum(final_results[labels==i])  <= 75*75*areathres:
+                #final_results[labels == i] = 0.0
 
-    #put an area restraint: if the detected area are too small, ignore 
     return final_results, CrPlanes
 
     
@@ -632,6 +553,10 @@ def giveRamHyp(image,ramp_filter,hypp_filter,rampthres=0.22,hyppthres=0.18):
     ram_cells[results==0] = 0
 
     hyp_cells[results == 0] = 1
+
+    # area refinement
+    ram_cells = areaRefinement(ram_cells)
+    hyp_cells = areaRefinement(hyp_cells)
     
     
     return ram_cells, hyp_cells
@@ -662,6 +587,10 @@ def giveAmoeDys(image,amoefilter,amoethres=0.22,areathes=20):
             dys_cells[labels == i] = 0.0
         else:
             amoe_cells[labels == i] = 0.0
+
+    # area refinement
+    amoe_cells = areaRefinement(amoe_cells)
+    dys_cells = areaRefinement(dys_cells)
 
     return amoe_cells, dys_cells
 
@@ -695,20 +624,48 @@ def removeDetectedCells(TestImage,detected_cells,bgmthres=0.4):
     
     return newtestImage
 
-    
+def getWholeImageResults(allresults,smallImages):
+    """
+    show the results for whole image detection
+    "allresults" a list containt 100 dict oject, each dict object contains
+                the detected cell for each type
+    "smallImages" the 100 small images by divding the big image
+    """
+    cases = ['ram','rod','amoe','hyp','dys']
+    colors =  {'ram': 'green',
+               'rod': 'red',
+                'amoe': 'cyan',
+                'hyp': 'blue',
+                'dys': 'yellow'
+                        }
+    cellNums = []
+    resultsImage = []
+    for i in range(len(allresults)):
+        tempImage = smallImages[i].copy()
+        cellnum = dict()
+        for j in cases:
+            dumy, nGroup = measurements.label(allresults[i][j])
+            cellnum[j] = nGroup
+            tempImage = mach_functions.pasteImage(tempImage,allresults[i][j],colors[j])
+        resultsImage.append(tempImage)
+        cellNums.append(cellnum)
+        
+    return resultsImage, cellNums
+
+
 class machPerformance:
     """
     A class to store the peformance of mach filtering
     """
-
-    def __init__(self, mach_results, masks):
+    def __init__(self, mach_results, images):
         """
-        The mach_results a dict that contains the detected_cells by the filtering 
-        protocol
-        And the annotated masks for each type of cells
+        The mach_results is a dict that contains the detected_cells by the filtering 
+        The "images" is a dict contains the colored image/gray-scale image etc.
         """
         self.detectedCells = mach_results
-        self.masks = masks
+        self.images = images
+        self.masks = self.images['masks']
+        self.colorimage = images['colorImage']
         self.CellNums = dict()
         self.TP = dict()
         self.TP_weights = dict()
@@ -717,6 +674,26 @@ class machPerformance:
         self.TP_cells = dict()
         self.FP_cells = dict()
         self.PFscore = 0.0
+        self.imgResults = dict()
+        self.Colors = {'ram': 'green',
+                        'rod': 'red',
+                        'amoe': 'cyan',
+                        'hyp': 'blue',
+                        'dys': 'yellow'
+                        }
+        for i in self.detectedCells.keys():
+            self.CellNums[i] = measurements.label(self.detectedCells[i])[1]
+    
+    def giveImgResutls(self):
+        """
+        give images show the detection of each cell type
+        """
+        imgResults = dict()
+        for i in self.detectedCells.keys():
+            cimage = pasteImage(self.images['colorImage'],self.detectedCells[i],self.Colors[i])
+            imgResults[i] = cimage
+        self.imgResults = imgResults
+        return imgResults
 
     def resetTPFPWeights(self):
         """

@@ -3,6 +3,9 @@
 InputImage: "./TestImages/newSample.png" #the input image
 TrueImage: "./TestImages/Sample_annotate.png" #the annotated truth image, for validation only. Set as "None" if it is normal run
 
+# thres value used to remove the blue dots using the blue channel pixel intensity
+cellThres: 125
+
 
 #FilterInfo:
 FilterDir: "./filter_images"
@@ -16,29 +19,22 @@ FilterNames:
   PartialFilters: ['ramp','hypp'] 
     # "ramp" : process only filter of ramified filter
     # "hypp" : process only filter of hypertrophic filter
-  
 
-#TODO: To apply the protocol to real image, we may need to add standard preprocessing
-# function to remove the bluedots
-#PreprocessImage:
-#  RemoveBlueDots: True  #
 
 #TODO: implement the FilterOrder 2
 FilterOrder: 1
 # 1: pick up rod --> pick up ramified/hypertrophic --> pick up amoeboid/dystrophic
 # 2: pick up ramified/hypertrophic --> pick up rod --> pick up amoebioid/dystrophic
 
-ThresValues:
-  rod: 0.295
-  rodp: 0.185
-  rrodp: 1.35
+PenaltyFilterOption: 1 # 1--> use rodp, 2--> use rrodp
+RotationAngles: [15,30,45,60,75,90,105,120,135,150,165,180] # angles for the rotation of the rod and the penalty filter
 
-  ramp: 0.22
-  hypp: 0.18
+# thresholding values
+rodSNR: [2.0,0.28] # for rodp and rropd, respectively
 
-  amoe: 0.33
-  area: 210
+rampThres: 0.22
+hyppThres: 0.18
 
+amoeThres: 0.33
+areaThres: 210
 
-PenaltyFilterOption: 2 # 1--> use rodp, 2--> use rrodp
-RotationAngles: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90] # angles for the rotation of the rod and the penalty filter
