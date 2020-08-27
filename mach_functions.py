@@ -135,40 +135,61 @@ def alignRodCellvertically(Image,
 
     return rotatedImage
 
-def construct_test_image(filternames,perct=None, nRows=50,nCols=50):
-    '''
-    construct a test image (size = nRows x nCols filters) using filternames (a list containts the name)
-    and the percentage of each filter
-    TODO: not working, need to change filternames to image list to make it general
-    '''
-    filter_dimes = np.shape(filters[filternames[0]])
-    image_size_x = filter_dimes[0]*nRows
-    image_size_y = filter_dimes[1]*nCols
-    
-    test_image = np.ones((image_size_x,image_size_y))
-    
-    
-    numFilters = len(filternames) # the number of filters
-    
-    for m in np.arange(nRows):
-        for n in np.arange(nCols):
-            prob = np.random.rand()
-            for j in np.arange(numFilters):
-                    if j == 0:
-                        left = 0
-                    else: 
-                        left = np.sum(perct[0:j])
-                    right = left + perct[j]
-                    if prob >= left and prob <= right:
-                        indx = j
+def collectSelecteArea(yamlFile,BG=[202,202,196]):
+    """
+    collect the selected area based on info from the
+    yamlFile, combine them into on image if multiple areas
+    are selected. Clean the image
+    """
+    with open (yamlFile,'rb') as f:
+        imageInfo = yaml.load(f)
 
-            test_image[m*filter_dimes[0]:(m+1)*filter_dimes[0],\
-                        n*filter_dimes[1]:(n+1)*filter_dimes[1]] = filters[filternames[indx]]
-            
-    # now add some gaussian noise
-    test_image = add_gaussian_noise(test_image,var=0.003)
+    imagefile =  imageInfo['ImagePath'] + "/" + imageInfo["ImageName"]
+    if not os.path.isfile(imagefile):
+        raise RuntimeError(f"The image {imageInfo['ImageName']} is not found")
+    
+    img = cv2.imread(imagefile) #cv2 read image in bgr order
+    
+    # combine the multiple areas into one image
+    Nimages = len(imageInfo['coords'])
+    if Nimages > 1:
+        nRows = np.ceil(Nimages/2).astype(np.int)
+        nCols = 2
+        L =  imageInfo["coords"][0][2]*10
+        W =  imageInfo["coords"][0][3]*10
+        dimX = W*nRows
+        dimY = nCols*L
+        TotalImage = np.zeros((dimX,dimY,3),dtype=np.uint8)
+        
+        # first assign a use-defined background
+        TotalImage[:,:,0] = BG[0]
+        TotalImage[:,:,1] = BG[1]
+        TotalImage[:,:,2] = BG[2]
+        for  i in range(Nimages):
+            startx = int(W*np.floor(i/2))
+            endx = startx + W
+            starty = int(L*(i%2))
+            endy = starty + L
+            x = imageInfo["coords"][i][0]*10
+            y = imageInfo["coords"][i][1]*10
+            L = imageInfo["coords"][i][2]*10
+            W = imageInfo["coords"][i][3]*10
+            TotalImage[startx:endx,starty:endy] = img[y:y+W,x:x+L]
        
-    return test_image
+    else:
+        x = Info["coords"][0][0]*10
+        y = healthyInfo["coords"][0][1]*10
+        L = healthyInfo["coords"][0][2]*10
+        W = healthyInfo["coords"][0][3]*10
+        TotalImage = img[y:y+W,x:x+L]
+
+    outputImage = dict()
+    outputImage['selectedArea'] = TotalImage
+    outputImage['cleanedImage'] = cleanImage(TotalImage,imageInfo["cellThres"])
+    outputImage['rgbImage'] = cv2.cvtColor(TotalImage,cv2.COLOR_BGR2RGB)
+    outputImage['grayImage'] = invertGrayImage(outputImage['cleanedImage'])
+
+    return outputImage
 
 
 
