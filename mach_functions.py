@@ -1,8 +1,8 @@
 import cv2
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
-import mach_util
-import math
+#import mach_util
+#import math
 import sys
 from skimage import transform
 import imutils
@@ -13,8 +13,8 @@ import imutils
 import yaml
 import os
 
-sys.path = ["./matchedmyo/"] + sys.path
-import util
+#sys.path = ["./matchedmyo/"] + sys.path
+#import util
 
 
 truthColors = {
