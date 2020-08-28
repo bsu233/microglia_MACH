@@ -68,7 +68,7 @@ def helpmsg():
 
 if __name__ == "__main__":
 	
-	image = mach_functions.collectSelecteArea("./healthy.yaml")
+	image = mach_functions.collectSelecteArea("./unhealthy.yaml")
 
 
 	yamlFile = "./Params.yaml"
@@ -85,15 +85,15 @@ if __name__ == "__main__":
     		tempresults = runFiltering(j,Params,Filters)
     		allresults.append(tempresults)
 	
-	with open("healthyResults","wb") as f:
+	with open("unhealthyResults","wb") as f:
 		pickle.dump(allresults,f)
 	
 	
-	with open("healthySmallImages","wb") as f:
+	with open("unhealthySmallImages","wb") as f:
 		pickle.dump(smallColorImage,f)
 
 	
-	with open("healthySelectedArea","wb") as f:
+	with open("unhealthySelectedArea","wb") as f:
 		pickle.dump(image['rgbImage'],f)
 	
 

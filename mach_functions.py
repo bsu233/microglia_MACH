@@ -1,5 +1,5 @@
 import cv2
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 #import mach_util
 #import math
@@ -43,7 +43,7 @@ def normalize(image):
     newimage = image/np.max(image)
     return newimage
 
-def displayMultImage(images,cmap=None,numbering=True):
+def displayMultImage(images,nColumns=10,cmap=None,numbering=True):
     """
     Function to display the cropped representative microglia cells
     """
@@ -57,19 +57,20 @@ def displayMultImage(images,cmap=None,numbering=True):
 
             
         #now of rows, each row has maxi 25 columns
-    nRows = math.ceil(N / 25.0)
-    nColumns = 25
+    #nColumns = 25
+    nRows = np.ceil(N / nColumns)
+    #nColumns = 25
         
     figure = plt.figure(figsize=(nColumns,nRows))
             
     for i,img in enumerate(images):
             plt.subplot(nRows,nColumns,i+1)
-            plt.imshow(img,cmap=cmap)
+            plt.imshow(img,cmap=cmap,aspect="auto")
             plt.xticks([])
             plt.yticks([])
             if numbering:
                 plt.title(str(i+1))
-            plt.subplots_adjust(wspace=0,hspace=0)
+            plt.subplots_adjust(wspace=0.01,hspace=0.01)
 
 def invertGrayImage(oriImage):
     """
@@ -177,10 +178,10 @@ def collectSelecteArea(yamlFile,BG=[202,202,196]):
             TotalImage[startx:endx,starty:endy] = img[y:y+W,x:x+L]
        
     else:
-        x = Info["coords"][0][0]*10
-        y = healthyInfo["coords"][0][1]*10
-        L = healthyInfo["coords"][0][2]*10
-        W = healthyInfo["coords"][0][3]*10
+        x = imageInfo["coords"][0][0]*10
+        y = imageInfo["coords"][0][1]*10
+        L = imageInfo["coords"][0][2]*10
+        W = imageInfo["coords"][0][3]*10
         TotalImage = img[y:y+W,x:x+L]
 
     outputImage = dict()
@@ -667,7 +668,7 @@ def getWholeImageResults(allresults,smallImages):
         for j in cases:
             dumy, nGroup = measurements.label(allresults[i][j])
             cellnum[j] = nGroup
-            tempImage = mach_functions.pasteImage(tempImage,allresults[i][j],colors[j])
+            tempImage = pasteImage(tempImage,allresults[i][j],colors[j])
         resultsImage.append(tempImage)
         cellNums.append(cellnum)
         
