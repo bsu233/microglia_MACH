@@ -9,7 +9,6 @@ import imutils
 from scipy import ndimage
 from scipy.ndimage import measurements
 from scipy.ndimage import morphology
-import imutils
 import yaml
 import os
 
@@ -87,16 +86,23 @@ def invertGrayImage(oriImage):
 
 
 def alignRodCellvertically(Image,
-                            ImageName,
+                            ifbinary=False,
                             thres = 0.4, #thres value for binary image
                             plotting=False, # plotting the detected rod-direction
+                            inverse=False
                             ):
     """
     automatically align rod-shaped cells vertically
     """
     #image = util.ReadImg(Imagename).astype(np.uint8)
     #grey = cv2.cvtColor(rod,cv2.COLOR_RGB2GRAY)
-    dummy, binaryimage = cv2.threshold(Image, thres, 1.0, cv2.THRESH_BINARY)
+    if ifbinary:
+        binaryimage = Image
+    else:
+        if inverse:
+            dummy, binaryimage = cv2.threshold(cv2.cvtColor(Image,cv2.COLOR_BGR2GRAY), 255*thres, 255, cv2.THRESH_BINARY_INV)
+        else:
+            dummy, binaryimage = cv2.threshold(cv2.cvtColor(Image,cv2.COLOR_BGR2GRAY), 255*thres, 255, cv2.THRESH_BINARY)
 
     # detect the direction of rod using the hough line detection 
     # note, the angle unit is radian (1 radian = 57.2958 degree)
@@ -105,7 +111,7 @@ def alignRodCellvertically(Image,
     # find the peaks in the hough space
     peaks = transform.hough_line_peaks(Hspace,Angle,Dist)
     if len(peaks[0]) > 1:
-        raise RuntimeError('More than 1 directions exist in %s, plz use a image that contains only 1 direction' % (ImageName))
+        raise RuntimeError('More than 1 directions exist, plz use a image that contains only 1 direction')
 
 
     angle = peaks[1][0]
@@ -119,7 +125,7 @@ def alignRodCellvertically(Image,
         origin = np.array((0, binaryimage.shape[1]))
         line = (dist - origin * np.cos(angle)) / np.sin(angle)
         plt.subplot(1,2,1)
-        plt.imshow(Image,origin='lower')
+        plt.imshow(Image)
         plt.plot(origin,line,'r-')
 
         plt.ylim([0,binaryimage.shape[1]])
@@ -128,7 +134,7 @@ def alignRodCellvertically(Image,
         plt.title('detected directions')
 
         plt.subplot(1,2,2)
-        plt.imshow(rotatedImage,origin='lower')
+        plt.imshow(rotatedImage)
         plt.xticks([])
         plt.yticks([])
         plt.title('align vertically')
@@ -230,6 +236,33 @@ def azimuthally_psd(image,bins=30):
 
 
     
+
+def rotate_image(mat, angle):
+    """
+    Rotates an image (angle in degrees) and expands image to avoid cropping
+    """
+
+    height, width = mat.shape[:2] # image shape has 3 dimensions
+    image_center = (width/2, height/2) # getRotationMatrix2D needs coordinates in reverse order (width, height) compared to shape
+
+    rotation_mat = cv2.getRotationMatrix2D(image_center, angle, 1.)
+
+    # rotation calculates the cos and sin, taking absolutes of those.
+    abs_cos = abs(rotation_mat[0,0]) 
+    abs_sin = abs(rotation_mat[0,1])
+
+    # find the new width and height bounds
+    bound_w = int(height * abs_sin + width * abs_cos)
+    bound_h = int(height * abs_cos + width * abs_sin)
+
+    # subtract old image center (bringing image back to origo) and adding the new image center coordinates
+    rotation_mat[0, 2] += bound_w/2 - image_center[0]
+    rotation_mat[1, 2] += bound_h/2 - image_center[1]
+
+    # rotate image with the new bounds and translated rotation matrix
+    rotated_mat = cv2.warpAffine(mat, rotation_mat, (bound_w, bound_h))
+    return rotated_mat
+
 
 
 def divde_big_image(bigimage,grayscale=True):
@@ -496,8 +529,8 @@ def giveRod(TestImage,rodfilter,penaltyfilter,\
 
     final_results = np.zeros((TestImage.shape[0],TestImage.shape[1]))
     for i in iters:
-        rotated_rod = imutils.rotate(rodfilter,i)
-        rotated_rodp = imutils.rotate(penaltyfilter,i)
+        rotated_rod = rotate_image(rodfilter,i)
+        rotated_rodp = rotate_image(penaltyfilter,i)
         
         # do convolution
         Cr = ndimage.convolve(TestImage,rotated_rod)
