@@ -22,4 +22,4 @@ The code is still in development. To run the code on our local cluster (faust.lu
 
 6.  Analyze the results:
     - run `python analyze.py 10` in the directory where you unziped the repo zip. This will analyze the results and generate some image/txt outputs and binary images representing the detection of each cell type (`rodbinary`,`rambinary`, etc)
-    - These binary images are actually 2D numpy arrays and can be loaded with the `binaryImageAnalysis.ipynb` in the repo further anlysis.
+    - These binary images are actually 2D numpy arrays and can be loaded with the `binaryImageAnalysis.ipynb` in the repo for further anlysis. This ipython notebook read in the binary images and give the centorid of detected cells.
