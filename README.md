@@ -15,9 +15,9 @@ The code is still in development. To run the code on our local cluster (faust.lu
      - In image10.yaml, change `ImagePath` to `/data/bsun/MACH/images/` (where the images are)
      - Change the `cellThres` value to something between `115-140`. This value is used to clean the background, and currently set as 125. We need to find the best value for each specific image.
      - The effect of `cellThres`:
-       -![clean background](./TestImages/cleanbg.png)
+       -[clean background](./TestImages/cleanbg.png)
      - In `Params.yaml`, chaning the boxed parameters:
-       -![paramters need to be changed][./TestImages/params.png]
+       -[paramters need to be changed][./TestImages/param.png]
      
    
 1) Assign parameters in the "Params.yaml" file
