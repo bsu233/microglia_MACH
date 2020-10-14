@@ -24,6 +24,14 @@ truthColors = {
     'dys': 'yellow'
     }
 
+colorchannels = {
+    'green' : [1],
+    'red' : [0],
+    'blue': [2],
+    'yellow': [0,1],
+    'cyan': [1,2],
+    }
+
 
 def invert_gray_scale(images):
     """

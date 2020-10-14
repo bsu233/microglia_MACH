@@ -10,8 +10,8 @@ cellThres: 125
 #FilterInfo:
 FilterDir: "./filter_images"
 FilterNames:
-  NormalFilters: ['ram','rod','hyp','amoe','dys']  # normal MACH filter constructed from cropped cells
-  PenaltyFilters: ['rodp','rrodp','ramoep'] 
+  NormalFilters: ['ram','rod','hyp','amoe','dys','newrod']  # normal MACH filter constructed from cropped cells, added a newrodfiler
+  PenaltyFilters: ['rodp','rrodp','ramoep','newrodp'] 
     # "rodp" : penalty filter for rod filter constructed from rampfiled filter by masking out the rod part
     # "rrodp" : penalty filter for rod filter by reversing the rod filter [np.max(rod) - rod]
     # "ramoep": similar to rrodp, reversing the amoe filter
@@ -26,11 +26,11 @@ FilterOrder: 1
 # 1: pick up rod --> pick up ramified/hypertrophic --> pick up amoeboid/dystrophic
 # 2: pick up ramified/hypertrophic --> pick up rod --> pick up amoebioid/dystrophic
 
-PenaltyFilterOption: 1 # 1--> use rodp, 2--> use rrodp
+PenaltyFilterOption: 2 # 1--> use rodp, 2--> use rrodp
 RotationAngles: [15,30,45,60,75,90,105,120,135,150,165,180] # angles for the rotation of the rod and the penalty filter
 
 # thresholding values
-rodSNR: [2.0,0.28] # for rodp and rropd, respectively
+rodSNR: [2.0,0.27] # for rodp and rropd, respectively
 
 rampThres: 0.22
 hyppThres: 0.18
