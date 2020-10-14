@@ -197,8 +197,8 @@ if __name__ == "__main__":
     binaryImage = mergeResults(results[1],bImage=True)
      
     for i in binaryImage.keys():
-        np.savetxt(i+"binary",binaryImage[i])
-
+        with open(i+"binary",'wb') as f:
+             np.save(f,binaryImage[i])
 	# do the clustering analysis on the binary image
         countCluters(binaryImage[i],i,i)
     # 
