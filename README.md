@@ -18,7 +18,7 @@ The code is still in development. To run the code on our local cluster (faust.lu
        -![clean background](./TestImages/cleanbg.png)
      - In `Params.yaml`, change the boxed parameters, the `FilterDir` should be where you unziped the repo zip, and for thresholding values part, try slightly increase/decrase the values from the default vavlues.
        -![paramters need to be changed](./TestImages/param.png)
-    - tybe `sbatch run.sh` in the terminal to submit the job (it will take about 4-7 hours depending on the size of the image)
+    - type `sbatch run.sh` in the terminal to submit the job (it will take about 4-7 hours depending on the size of the image)
 
 6.  Analyze the results:
     - run `python analyze.py 10` in the directory where you unziped the repo zip. This will analyze the results and generate some image/txt outputs and binary images representing the detection of each cell type (`rodbinary`,`rambinary`, etc)
