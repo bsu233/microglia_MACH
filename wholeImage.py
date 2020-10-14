@@ -86,9 +86,10 @@ if __name__ == "__main__":
 	parser.add_argument("ImageYaml", help="The Yaml file for the iamge that will be classified")
 	parser.add_argument("Prefix", help="The prefix of the result files")
 	args = parser.parse_args()
-	image = mach_functions.collectSelecteArea(args.ImageYaml)
 	prefix = args.Prefix
-	
+
+        # read in the image info
+	image = mach_functions.collectSelecteArea(args.ImageYaml)
 	
 	
 	start_time = time.time()

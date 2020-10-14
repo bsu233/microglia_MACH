@@ -182,8 +182,8 @@ if __name__ == "__main__":
       
 
     # directory of the results 
-    resultsdir = "/home/binsun/microglia_MACH/all_results/"
-    os.chdir(resultsdir + idx)
+    resultsdir = os.getcwd()
+    os.chdir(resultsdir +"/"+ idx)
     results = readresults(idx)
 
 
