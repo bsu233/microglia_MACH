@@ -13,7 +13,8 @@ The code is still in development. To run the code on our local cluster (faust.lu
    - Suppose you want to do analysis for image 10, after setting `ID=10` in the prepare.sh, executing it (`./prepare.sh`)
    - Go to sub-directory 10, view the `image10.yaml` and `Params.yaml`, **Change Some Parameters in these two yaml files**
      - In image10.yaml, change `ImagePath` to `/data/bsun/MACH/images/` (where the images are)
-     - Change the `cellThres` value to something between `115-140`. This value is used to clean the background, and currently set as 125. We need to find the best value for each specific image. 
+     - Change the `cellThres` value to something between `115-140`. This value is used to clean the background, and currently set as 125. We need to find the best value for each specific image.
+     - The effect of `cellThres`: ![clean background](images/cleanbg.png)
    
      
    
