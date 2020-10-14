@@ -1,7 +1,14 @@
-# microglia_MACH
-Using the MACH filter to detect microglia morphology in brain tissue
+# Using the MACH filter to detect microglia morphology in humain brain tissue images.
+The code is still in development. To run the code on our local cluster (faust.luc.edu), you need: 
+1. Have a user account on faust. 
+2. Since this repo is written in python and uses heavily standard python libaries such as numpy/scipy/opencv
+   - Download [Anaconda](https://www.anaconda.com/products/individual#linux)
+   - install
 
-The code is still in development, to run the code:
+3. We now have 227 big images on Faust ()
+3. Download this reop (.zip) on to faust.
+   - unzip this zip.
+   - view the prepare.sh file, 
 1) Assign parameters in the "Params.yaml" file
 2) Open the "hierarchical_filtering.ipynb" to run the filtering.
 
