@@ -16,8 +16,8 @@ The code is still in development. To run the code on our local cluster (faust.lu
      - Change the `cellThres` value to something between `115-140`. This value is used to clean the background, and currently set as 125. We need to find the best value for each specific image.
      - The effect of `cellThres`:
        -![clean background](./TestImages/cleanbg.png)
-     - In `Params.yaml`, chaning the boxed parameters:
-       -![paramters need to be changed][./TestImages/param.png]
+     - In `Params.yaml`, change the boxed parameters, the `FilterDir` should be where you unziped the repo zip, and for thresholding values part, try slightly increase/decrase the values from the default vavlues.
+       -![paramters need to be changed](./TestImages/param.png)
      
    
 1) Assign parameters in the "Params.yaml" file
