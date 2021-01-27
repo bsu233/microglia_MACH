@@ -2,4 +2,4 @@
 ImagePath: /home/binsun/microglia_images/S3_Image
 ImageName: 2018-09-06-2912-S3.png
 coords: [[1011,72,366,333],[1299,435,366,333],[1092,822,366,333],[705,1164,366,333],[300,936,366,333],[735,534,366,333]]
-cellThres: 140
+cellThres: 130

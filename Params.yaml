@@ -1,5 +1,5 @@
 #FilterInfo:
-FilterDir: "/home/bsun/scratch/test/filter_images"
+FilterDir: "/home/binsun/microglia_MACH/microglia_MACH/filter_images/"
 FilterNames:
   NormalFilters: ['ram','rod','hyp','amoe','dys','newrod']  # normal MACH filter constructed from cropped cells, added a newrodfiler (120x120 size)
   PenaltyFilters: ['rodp','rrodp','ramoep','newrodp'] 
