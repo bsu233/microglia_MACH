@@ -8,7 +8,7 @@ The code is still in development. To run the code on our local cluster (faust.lu
 
 3. The all 227 big images are in /data/bsun/MACH/images on Faust. These images are accessible to all Faust users.
 5. To run the detection:
-   - Download this reop (.zip) onto Faust and unzip it (`unzip microglia_MACH-master.zip`)
+   - Download this repo (.zip) onto Faust and unzip it (`unzip microglia_MACH-master.zip`)
    - View the `prepare.sh` file, following the directions in the `prepare.sh` file.
    - Suppose you want to do analysis for image 10, after setting `ID=10` in the prepare.sh, executing it (`./prepare.sh`)
    - Go to sub-directory 10, view the `image10.yaml` and `Params.yaml`, **Change Some Parameters in these two yaml files**
