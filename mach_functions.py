@@ -119,7 +119,7 @@ def alignRodCellvertically(Image,
     # find the peaks in the hough space
     peaks = transform.hough_line_peaks(Hspace,Angle,Dist)
     if len(peaks[0]) > 1:
-        raise RuntimeError('More than 1 directions exist, plz use a image that contains only 1 direction')
+        print ('More than 1 directions exist, using the first direction')
 
 
     angle = peaks[1][0]
